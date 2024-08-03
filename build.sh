@@ -68,6 +68,20 @@ if [ "$email" ]; then
 
 fi
 
+read -p "请粘贴 Clerk 公钥：（NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY）" appkey
+
+if [ -z "$appkey" ]; then
+  echo "Clerk 公钥不能为空"
+  exit 1
+fi
+
+read -p "请粘贴 Clerk 私钥：（CLERK_SECRET_KEY）" secret
+
+if [ -z "$secret" ]; then
+  echo "Clerk 私钥不能为空"
+  exit 1
+fi
+
 setupCaddy2=$email && $caddy2
 
 if [ "x$setupCaddy2" != "x" ]; then
@@ -79,24 +93,19 @@ fi
 randomString=$(uuidgen | tr -d '-')
 
 cp .env.example .env
-echo BASE_URL=https://${domain} >>.env
+echo NEXT_PUBLIC_API_URL=https://${domain}/api/v2 >>.env
+echo NEXT_PUBLIC_GATEWAY_URL=https://${domain} >>.env
+echo NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${appkey} >>.env
+echo CLERK_SECRET_KEY=${secret} >>.env
 echo JWT_SECRET=${randomString} >>.env
 echo ALLOWED_ORIGINS=${domain} >>.env
-rm -rf kami
-git clone https://github.com/mx-space/kami --depth=1
 
-cd kami
-git fetch --tags
-latestTagHash=$(git rev-list --tags --max-count=1)
-latestTag=$(git describe --tags $latestTagHash)
-git checkout $latestTag
-cd ..
 
 if [ "x$setupCaddy2" != "x" ]; then
-  docker compose build
+  docker compose pull
   docker compose up -d
 else
-  docker compose -f docker-compose.no-caddy.yml build
+  docker compose -f docker-compose.no-caddy.yml pull
   docker compose -f docker-compose.no-caddy.yml up -d
   touch ./no-caddy
 fi

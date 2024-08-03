@@ -1,6 +1,7 @@
 ---------DOMAIN------------ {
   encode gzip
   handle /qaqdmin {
+    rewrite * /proxy/qaqdmin
     reverse_proxy app-server:2333
   }
 
@@ -56,7 +57,7 @@
 
 
   handle /* {
-    reverse_proxy app-kami:2323
+    reverse_proxy app-shiro:2323
   }
   tls --------EMAIL------------
 }

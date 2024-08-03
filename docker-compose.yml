@@ -1,36 +1,29 @@
-version: "3.8"
-
 services:
   caddy:
     container_name: caddy
-    image: caddy:2.4.5
+    image: caddy:2.8.4
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - $PWD/Caddyfile:/etc/caddy/Caddyfile
     depends_on:
-      - app-kami
+      - app-shiro
     networks:
       - app-network
 
-  app-kami:
+  app-shiro:
     env_file:
       - .env
-    container_name: mx-kami
-    restart: "on-failure"
+    container_name: mx-shiro
+    image: innei/shiro:latest
+    restart: "always"
     ports:
-      - "2323:2323"
-    build:
-      context: ./kami
-      args:
-        NODE_ENV: production
-        BASE_URL: "${BASE_URL}"
+      - '2323:2323'
     depends_on:
       - app-server
-    command: "node server.js"
     environment:
-      NODE_ENV: production
+      - NEXT_SHARP_PATH=/usr/local/lib/node_modules/sharp
     networks:
       - app-network
     links:
@@ -38,12 +31,10 @@ services:
 
   app-server:
     container_name: mx-server
-    image: innei/mx-server:3
+    image: innei/mx-server:latest
     volumes:
       - ./data/mx-space:/root/.mx-space
-    command: node index.js --redis_host=redis --db_host=mongo --allowed_origins=${ALLOWED_ORIGINS} --jwt_secret=${JWT_SECRET} --cluster --color
-
-    restart: "on-failure"
+    restart: "unless-stopped"
     ports:
       - "2333:2333"
     depends_on:
@@ -57,6 +48,10 @@ services:
     environment:
       - NODE_ENV=production
       - TZ=Asia/Shanghai
+      - DB_HOST=mongo
+      - REDIS_HOST=redis
+      - ALLOWED_ORIGINS=localhost
+      - JWT_SECRET=YOUR_SUPER_SECURED_JWT_SECRET_STRING
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:2333/info"]
       interval: 30s
@@ -69,15 +64,20 @@ services:
     image: mongo
     volumes:
       - ./data/db:/data/db
-    ports:
-      - "127.0.0.1:3344:27017"
     networks:
       - app-network
+    restart: unless-stopped
 
   redis:
     image: redis
     container_name: redis
-
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli ping | grep PONG']
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 3s
+    restart: unless-stopped
     networks:
       - app-network
 networks:
